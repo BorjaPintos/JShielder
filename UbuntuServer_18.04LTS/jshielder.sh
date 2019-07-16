@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# JShielder v2.3
+# JShielder v2.4
 # Deployer for Ubuntu Server 18.04 LTS
 #
 # Jason Soto
@@ -14,6 +14,8 @@
 # A lot of Suggestion Taken from The Lynis Project
 # www.cisofy.com/lynis
 # Credits to Michael Boelen @mboelen
+
+#Credits to Center for Internet Security CIS
 
 
 source helpers.sh
@@ -54,6 +56,7 @@ if [ "$USER" != "root" ]; then
 else
       clear
       f_banner
+      jshielder_home=$(pwd)
       cat templates/texts/welcome
 fi
 }
@@ -144,7 +147,6 @@ restrictive_umask(){
    echo ""
    spinner
    cp templates/login.defs /etc/login.defs
-   # sed -i s/umask\ 022/umask\ 027/g /etc/init.d/rc
    echo ""
    echo "OK"
    say_done
@@ -362,108 +364,94 @@ install_apache(){
 
 ##############################################################################################################
 
-# Install Nginx With ModSecurity
-install_nginx_modsecurity(){
+# Install Nginx
+install_nginx(){
   clear
-  f_banner
+  f_banner 
   echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
-  echo -e "\e[93m[+]\e[00m Downloading and Compiling Nginx with ModSecurity"
+  echo -e "\e[93m[+]\e[00m Installing NginX Web Server"
   echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
   echo ""
-  apt -y install git build-essential libpcre3 libpcre3-dev libssl-dev libtool autoconf apache2-prefork-dev libxml2-dev libcurl4-openssl-dev
-  mkdir src
-  cd src/
-  git clone https://github.com/SpiderLabs/ModSecurity
-  cd ModSecurity
-  ./autogen.sh
-  ./configure --enable-standalone-module
-  make
-  cd ..
-  wget http://nginx.org/download/nginx-1.9.7.tar.gz
-  tar xzvf nginx-1.9.7.tar.gz
-  cp ../templates/ngx_http_header_filter_module.c nginx-1.9.7/src/http/ngx_http_header_filter_module.c
-  cd nginx-1.9.7/
-  ./configure --user=www-data --group=www-data --with-pcre-jit --with-debug --with-http_ssl_module --add-module=/root/JShielder/UbuntuServer_14.04LTS/src/ModSecurity/nginx/modsecurity
-  make
-  make install
-  #Replacing Nginx conf with secure Configurations
-  cp ../../templates/nginx /usr/local/nginx/conf/nginx.conf
-  #Jason Giedymin Nginx Init Script
-  wget https://raw.github.com/JasonGiedymin/nginx-init-ubuntu/master/nginx -O /etc/init.d/nginx
-  chmod +x /etc/init.d/nginx
-  update-rc.d nginx defaults
-  mkdir /usr/local/nginx/conf/sites-available
-  mkdir /usr/local/nginx/conf/sites-enabled
-  say_done
-}
-  ##############################################################################################################
-
-  #Setting UP Virtual Host
-  set_nginx_vhost(){
-  clear
-  f_banner
-  echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
-  echo -e "\e[93m[+]\e[00m Setup Virtual Host for Nginx"
-  echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
-  echo " Configure a Virtual Host"
-  echo " Type a Name to Identify the Virtual Host"
-  echo -n " (For Example: myserver.com) "; read vhost
-  touch /usr/local/nginx/conf/sites-available/$vhost
-  cd ../..
-  cat templates/nginxvhost >> /usr/local/nginx/conf/sites-available/$vhost
-  sed -i s/server.com/$vhost/g /usr/local/nginx/conf/sites-available/$vhost
-  ln -s /usr/local/nginx/conf/sites-available/$vhost /usr/local/nginx/conf/sites-enabled/$vhost
+  echo "deb http://nginx.org/packages/ubuntu/ bionic nginx" >> /etc/apt/sources.list
+  echo "deb-src http://nginx.org/packages/ubuntu/ bionic nginx" >> /etc/apt/sources.list
+  curl -O https://nginx.org/keys/nginx_signing.key && apt-key add ./nginx_signing.key
+  apt update
+  apt install nginx
   say_done
 }
 
-
 ##############################################################################################################
 
-#Setting UP Virtual Host
-set_nginx_vhost_nophp(){
-clear
-f_banner
-echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
-echo -e "\e[93m[+]\e[00m Setup Virtual Host for Nginx"
-echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
-echo " Configure a Virtual Host"
-echo " Type a Name to Identify the Virtual Host"
-echo -n " (For Example: myserver.com) "; read vhost
-touch /usr/local/nginx/conf/sites-available/$vhost
-cd ../..
-cat templates/nginxvhost_nophp >> /usr/local/nginx/conf/sites-available/$vhost
-sed -i s/server.com/$vhost/g /usr/local/nginx/conf/sites-available/$vhost
-ln -s /usr/local/nginx/conf/sites-available/$vhost /usr/local/nginx/conf/sites-enabled/$vhost
-say_done
-}
+#Compile ModSecurity for NginX
 
-
-##############################################################################################################
-
-#Set Nginx Modsecurity OWASP Rules
-set_nginx_modsec_OwaspRules(){
+compile_modsec_nginx(){
   clear
-  f_banner
+  f_banner 
   echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
-  echo -e "\e[93m[+]\e[00m Setting OWASP Rules for ModSecurity on Nginx"
+  echo -e "\e[93m[+]\e[00m Install Prerequisites and Compiling ModSecurity for NginX"
   echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
   echo ""
-  cd src/
-  wget https://github.com/SpiderLabs/owasp-modsecurity-crs/tarball/master -O owasp.tar.gz
-  tar -zxvf owasp.tar.gz
-  owaspdir=$(ls -la | grep SpiderLabs | cut -d ' ' -f18)
-  cp ModSecurity/modsecurity.conf-recommended /usr/local/nginx/conf/modsecurity.conf
-  cp ModSecurity/unicode.mapping /usr/local/nginx/conf/
-  cd $owaspdir/
-  cat modsecurity_crs_10_setup.conf.example >> /usr/local/nginx/conf/modsecurity.conf
-  cd base_rules/
-  cat *.conf >> /usr/local/nginx/conf/modsecurity.conf
-  cp *.data /usr/local/nginx/conf/
-  cd ../../..
+
+apt install bison flex make automake gcc pkg-config libtool doxygen git curl zlib1g-dev libxml2-dev libpcre3-dev build-essential libyajl-dev yajl-tools liblmdb-dev rdmacm-utils libgeoip-dev libcurl4-openssl-dev liblua5.2-dev libfuzzy-dev openssl libssl-dev
+
+cd /opt/
+git clone https://github.com/SpiderLabs/ModSecurity
+
+cd ModSecurity
+git checkout v3/master
+git submodule init
+git submodule update
+
+./build.sh
+./configure
+make
+make install
+
+cd ..
+
+nginx_version=$(dpkg -l |grep nginx | awk '{print $3}' | cut -d '-' -f1)
+
+wget http://nginx.org/download/nginx-$nginx_version.tar.gz
+tar xzvf nginx-$nginx_version.tar.gz
+
+git clone https://github.com/SpiderLabs/ModSecurity-nginx
+
+cd nginx-$nginx_version/
+
+./configure --with-compat --add-dynamic-module=/opt/ModSecurity-nginx
+make modules
+
+cp objs/ngx_http_modsecurity_module.so /etc/nginx/modules/
+
+cd /etc/nginx/
+
+mkdir /etc/nginx/modsec
+cd /etc/nginx/modsec
+git clone https://github.com/SpiderLabs/owasp-modsecurity-crs.git
+mv /etc/nginx/modsec/owasp-modsecurity-crs/crs-setup.conf.example /etc/nginx/modsec/owasp-modsecurity-crs/crs-setup.conf
+
+cp /opt/ModSecurity/modsecurity.conf-recommended /etc/nginx/modsec/modsecurity.conf
+
+echo "Include /etc/nginx/modsec/modsecurity.conf" >> /etc/nginx/modsec/main.conf
+echo "Include /etc/nginx/modsec/owasp-modsecurity-crs/crs-setup.conf" >> /etc/nginx/modsec/main.conf
+echo "Include /etc/nginx/modsec/owasp-modsecurity-crs/rules/*.conf" >> /etc/nginx/modsec/main.conf
+
+wget -P /etc/nginx/modsec/ https://github.com/SpiderLabs/ModSecurity/raw/v3/master/unicode.mapping
+cd $jshielder_home
+
+  clear
+  f_banner 
+  echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
+  echo -e "\e[93m[+]\e[00m Configuring ModSecurity for NginX"
+  echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
+  echo ""
+  spinner
+  cp templates/nginx /etc/nginx/nginx.conf
+  cp templates/nginx_default /etc/nginx/conf.d/default.conf
   service nginx restart
   say_done
-}
 
+}
 
 ##############################################################################################################
 
@@ -487,24 +475,22 @@ install_secure_php(){
 }
 
 ##############################################################################################################
+
 # Install, Configure and Optimize PHP for Nginx
-install_php_nginx(){
-  clear
-  f_banner
-  echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
-  echo -e "\e[93m[+]\e[00m Installing, Configuring and Optimizing PHP/PHP-FPM"
-  echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
-  echo ""
-  apt install php-fpm php php-cli php-pear
-  apt install php-mysql python-mysqldb
-  echo ""
-  echo -n " Replacing php.ini..."
-  spinner
-  cp templates/php /etc/php/7.0/cli/php.ini; echo " OK"
-  cp templates/phpnginx /etc/php/7.0/fpm/php.ini; echo "OK"
-  service php-fpm restart
-  service nginx restart
-  say_done
+install_secure_php_nginx(){
+    clear
+    f_banner
+    echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
+    echo -e "\e[93m[+]\e[00m Installing, Configuring and Optimizing PHP for NginX"
+    echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
+    echo ""
+    apt install -y php-fpm php-mysql
+    echo ""
+    echo -n " Removing insecure configuration on php.ini..."
+    spinner
+    sed -i 's/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/g' /etc/php/7.2/fpm/php.ini; echo " OK"
+    service php7.2-fpm restart
+    say_done
 }
 
 ##############################################################################################################
@@ -1015,28 +1001,6 @@ enable_proc_acct(){
 
 ##############################################################################################################
 
-#Install PHP Suhosin Extension
-#install_phpsuhosin(){
-#  clear
-#  f_banner
-#  echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
-#  echo -e "\e[93m[+]\e[00m Installing PHP Suhosin Extension"
-#  echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
-#  echo ""
-#  echo 'deb http://repo.suhosin.org/ ubuntu-trusty main' >> /etc/apt/sources.list
-#  #Suhosin Key
-#  wget https://sektioneins.de/files/repository.asc
-#  apt-key add repository.asc
-#  apt update
-#  apt install php-suhosin-extension
-# phpenmod suhosin
-#  service apache2 restart
-#  echo "OK"
-#  say_done
-#}
-
-##############################################################################################################
-
 #Install and enable auditd
 
 install_auditd(){
@@ -1242,13 +1206,12 @@ echo -e "\e[93m[+]\e[00m SELECT THE DESIRED OPTION"
 echo -e "\e[34m---------------------------------------------------------------------------------------------------------\e[00m"
 echo ""
 echo "1. LAMP Deployment"
-echo "2. Reverse Proxy Deployment With Apache"
-echo "3. LEMP Deployment (Under Development, Testing)"
-echo "4. Reverse Proxy Deployment with Nginx (ModSecurity)"
-echo "5. Running With SecureWPDeployer or JSDeployer Script"
-echo "6. Customized Run (Only run desired Options)"
-echo "7. CIS Benchmark Hardening"
-echo "8. Exit"
+echo "2. LEMP Deployment"
+echo "3. Reverse Proxy Deployment With Apache"
+echo "4. Running With SecureWPDeployer or JSDeployer Script"
+echo "5. Customized Run (Only run desired Options)"
+echo "6. CIS Benchmark Hardening"
+echo "7. Exit"
 echo
 
 read choice
@@ -1302,7 +1265,50 @@ file_permissions
 reboot_server
 ;;
 
+
 2)
+check_root
+install_dep
+config_host
+config_timezone
+update_system
+restrictive_umask
+unused_filesystems
+uncommon_netprotocols
+admin_user
+rsa_keygen
+rsa_keycopy
+secure_ssh
+set_iptables
+install_fail2ban
+install_secure_mysql
+install_nginx
+compile_modsec_nginx
+install_secure_php_nginx
+config_fail2ban
+additional_packages
+tune_secure_kernel
+install_rootkit_hunter
+tune_nano_vim_bashrc
+daily_update_cronjob
+install_artillery
+additional_hardening
+install_unhide
+install_tiger
+install_psad
+disable_compilers
+secure_tmp
+unattended_upgrades
+enable_proc_acct
+install_auditd
+install_sysstat
+install_arpwatch
+set_grubpassword
+file_permissions
+reboot_server
+;;
+
+3)
 check_root
 install_dep
 config_host
@@ -1347,91 +1353,8 @@ file_permissions
 reboot_server
 ;;
 
-3)
-check_root
-install_dep
-config_host
-config_timezone
-update_system
-restrictive_umask
-unused_filesystems
-uncommon_netprotocols
-admin_user
-rsa_keygen
-rsa_keycopy
-secure_ssh
-set_iptables
-install_fail2ban
-install_secure_mysql
-install_nginx_modsecurity
-set_nginx_vhost
-set_nginx_modsec_OwaspRules
-install_php_nginx
-config_fail2ban
-additional_packages
-tune_secure_kernel
-install_rootkit_hunter
-tune_nano_vim_bashrc
-daily_update_cronjob
-install_artillery
-additional_hardening
-install_unhide
-install_tiger
-install_psad
-disable_compilers
-secure_tmp
-unattended_upgrades
-enable_proc_acct
-install_auditd
-install_sysstat
-install_arpwatch
-set_grubpassword
-file_permissions
-reboot_server
-;;
 
 4)
-check_root
-install_dep
-config_host
-config_timezone
-update_system
-restrictive_umask
-unused_filesystems
-uncommon_netprotocols
-admin_user
-rsa_keygen
-rsa_keycopy
-secure_ssh
-set_iptables
-install_fail2ban
-install_nginx_modsecurity
-set_nginx_vhost_nophp
-set_nginx_modsec_OwaspRules
-config_fail2ban
-additional_packages
-tune_secure_kernel
-install_rootkit_hunter
-tune_nano_vim_bashrc
-daily_update_cronjob
-install_artillery
-additional_hardening
-install_unhide
-install_tiger
-install_psad
-disable_compilers
-secure_tmp
-unattended_upgrades
-enable_proc_acct
-install_auditd
-install_sysstat
-install_arpwatch
-set_grubpassword
-file_permissions
-reboot_server
-;;
-
-5)
 check_root
 install_dep
 config_host
@@ -1477,7 +1400,7 @@ set_grubpassword
 file_permissions
 ;;
 
-6)
+5)
 
 menu=""
 until [ "$menu" = "34" ]; do
@@ -1680,12 +1603,12 @@ esac
 done
 ;;
 
-7)
+6)
 chmod +x jshielder-CIS.sh
 ./jshielder-CIS.sh
 ;;
 
-8)
+7)
 exit 0
 ;;
 

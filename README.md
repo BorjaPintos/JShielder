@@ -16,10 +16,12 @@ This tool is a Bash Script that hardens the Linux Server security automatically 
 * Disables unused FileSystems and Network protocols
 * Protects the server against Brute Force attacks by installing a configuring fail2ban
 * Installs and Configure Artillery as a Honeypot, Monitoring, Blocking and Alerting tool
+* Installs PortSentry
 * Install, configure, and optimize MySQL
 * Install the Apache Web Server
 * Install, configure and secure PHP
 * Secure Apache via configuration file and with installation of the Modules ModSecurity, ModEvasive, Qos and SpamHaus
+* Secures NginX with the Installation of ModSecurity NginX module
 * Installs RootKit Hunter
 * Secures Root Home and Grub Configuration Files
 * Installs Unhide to help Detect Malicious Hidden Processes
@@ -28,7 +30,6 @@ This tool is a Bash Script that hardens the Linux Server security automatically 
 * Disables Compilers
 * Creates Daily Cron job for System Updates
 * Kernel Hardening via sysctl configuration File (Tweaked)
-* LEMP Deployment with ModSecurity (Needs Updating and Testing)
 * /tmp Directory Hardening
 * PSAD IDS installation
 * Enables Process Accounting
@@ -46,8 +47,12 @@ This tool is a Bash Script that hardens the Linux Server security automatically 
 * Secures Boot Settings
 * Sets Secure File Permissions for Critical System Files
 
+#NEW!!
 
-# NEWLY ADDED FUNCTION
+* LEMP Deployment with ModSecurity
+
+
+# CIS Benchmark JShielder Script Added
 
 * Separate Hardening Script Following CIS Benchmark Guidance
   https://www.cisecurity.org/benchmark/ubuntu_linux/
@@ -68,15 +73,12 @@ Having Problems, please open a New Issue for JShielder on Github.
 
 # Distro Availability
 
-* Ubuntu Server 14.04LTS
 * Ubuntu Server 16.04LTS
 * Ubuntu Server 18.04LTS
 
-# Notes
-
-After Final Release of Ubuntu 18.04LTS, will not be maintaining Jshielder for Ubuntu 14.04. Will focus on last 2 major LTS Releases.
-
 # ChangeLog
+
+v2.4 Added LEMP Deployment with ModSecurity
 
 v2.3 More Hardening steps Following some CIS Benchmark items for LAMP Deployer
 
